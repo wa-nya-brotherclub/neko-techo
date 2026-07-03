@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>猫の健康手帳</title>
+<style>
+  :root{
+    --bg:#faf6ef; --card:#ffffff; --ink:#4a3f35; --sub:#8a7d6f;
+    --accent:#e8965a; --accent-dark:#d97f3f; --line:#eee5d8;
+    --ok:#7fb069; --warn:#e07a5f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:"Hiragino Sans","Yu Gothic",sans-serif; background:var(--bg); color:var(--ink); font-size:16px;}
+  header{background:var(--accent); color:#fff; padding:14px 16px; text-align:center; font-size:19px; font-weight:700; letter-spacing:.05em;}
+  nav{display:flex; background:#fff; border-bottom:2px solid var(--line); position:sticky; top:0; z-index:10;}
+  nav button{flex:1; padding:13px 0; border:none; background:none; font-size:15px; color:var(--sub); font-weight:600; cursor:pointer; border-bottom:3px solid transparent;}
+  nav button.active{color:var(--accent-dark); border-bottom-color:var(--accent);}
+  main{padding:14px; max-width:560px; margin:0 auto; padding-bottom:60px;}
+  .card{background:var(--card); border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  h2{font-size:15px; margin:0 0 10px; color:var(--accent-dark);}
+  label{display:block; font-size:13px; color:var(--sub); font-weight:600; margin:10px 0 4px;}
+  input[type=text],input[type=date],input[type=number],textarea,select{
+    width:100%; padding:11px; border:1.5px solid var(--line); border-radius:10px; font-size:16px; background:#fffdf9; color:var(--ink);}
+  textarea{resize:vertical; min-height:64px;}
+  .catrow{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px;}
+  .catbtn{flex:1 1 40%; padding:14px 6px; border-radius:12px; border:2px solid var(--line); background:#fff; font-size:16px; font-weight:700; color:var(--ink); cursor:pointer;}
+  .catbtn.sel{border-color:var(--accent); background:#fdf0e3;}
+  .chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{padding:9px 13px; border-radius:999px; border:1.5px solid var(--line); background:#fff; font-size:14px; color:var(--ink); cursor:pointer;}
+  .chip.sel{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700;}
+  .counter{display:flex; align-items:center; gap:14px;}
+  .counter button{width:46px; height:46px; border-radius:50%; border:none; background:#f3e8d9; font-size:24px; color:var(--accent-dark); cursor:pointer; font-weight:700;}
+  .counter span{font-size:22px; font-weight:700; min-width:34px; text-align:center;}
+  .savebtn{width:100%; padding:16px; border:none; border-radius:14px; background:var(--accent); color:#fff; font-size:18px; font-weight:700; cursor:pointer; margin-top:14px;}
+  .savebtn:active{background:var(--accent-dark);}
+  .subbtn{padding:10px 14px; border:1.5px solid var(--accent); border-radius:10px; background:#fff; color:var(--accent-dark); font-size:14px; font-weight:700; cursor:pointer; margin:4px 4px 0 0;}
+  .rec{border-bottom:1px solid var(--line); padding:10px 2px;}
+  .rec:last-child{border-bottom:none;}
+  .rec .top{display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:15px;}
+  .rec .del{background:none; border:none; color:#c9b8a5; font-size:13px; cursor:pointer; padding:4px;}
+  .rec .body{font-size:14px; color:var(--sub); margin-top:3px; line-height:1.6;}
+  .today-grid{display:flex; gap:8px; flex-wrap:wrap;}
+  .today-cell{flex:1 1 40%; border-radius:12px; padding:10px; text-align:center; font-size:14px; font-weight:700; background:#f6efe4; color:var(--sub);}
+  .today-cell.done{background:#e9f3e2; color:var(--ok);}
+  .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 22px; border-radius:999px; font-size:15px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:99;}
+  .toast.show{opacity:1;}
+  .note{font-size:12.5px; color:var(--sub); line-height:1.6; margin-top:8px;}
+</style>
+</head>
+<body>
+<header>🐾 猫の健康手帳</header>
+<nav>
+  <button id="tab-record" class="active" onclick="showTab('record')">きろく</button>
+  <button id="tab-history" onclick="showTab('history')">りれき</button>
+  <button id="tab-settings" onclick="showTab('settings')">せってい</button>
+</nav>
+<main>
+  <!-- 記録タブ -->
+  <div id="page-record">
+    <div class="card">
+      <h2>きょうの記録状況</h2>
+      <div class="today-grid" id="todayGrid"></div>
+    </div>
+    <div class="card">
+      <h2>どの子の記録?</h2>
+      <div class="catrow" id="catSelect"></div>
+      <label>日付</label>
+      <input type="date" id="recDate">
+    </div>
+    <div class="card">
+      <h2>ごはん・お水</h2>
+      <label>食事量</label>
+      <div class="chips" id="foodChips"></div>
+      <label>飲水</label>
+      <div class="chips" id="waterChips"></div>
+    </div>
+    <div class="card">
+      <h2>トイレ</h2>
+      <label>ウンチの回数</label>
+      <div class="counter">
+        <button onclick="bump('poop',-1)">−</button><span id="poopN">0</span><button onclick="bump('poop',1)">＋</button>
+      </div>
+      <label>ウンチの状態</label>
+      <div class="chips" id="poopChips"></div>
+      <label>おしっこの回数</label>
+      <div class="counter">
+        <button onclick="bump('pee',-1)">−</button><span id="peeN">0</span><button onclick="bump('pee',1)">＋</button>
+      </div>
+      <label>おしっこの量</label>
+      <div class="chips" id="peeChips"></div>
+    </div>
+    <div class="card">
+      <h2>からだ</h2>
+      <label>体重(kg)※わかる時だけ</label>
+      <input type="number" id="recWeight" step="0.01" inputmode="decimal" placeholder="例: 4.25">
+      <label>体調メモ(嘔吐・くしゃみ・元気度など)</label>
+      <textarea id="recMemo" placeholder="例: 朝1回吐いた。その後は元気。"></textarea>
+    </div>
+    <button class="savebtn" onclick="saveRecord()">この内容で記録する</button>
+  </div>
+
+  <!-- 履歴タブ -->
+  <div id="page-history" style="display:none">
+    <div class="card">
+      <h2>しぼりこみ</h2>
+      <div class="chips" id="filterChips"></div>
+    </div>
+    <div class="card" id="historyList"></div>
+    <div class="card">
+      <h2>データの持ち出し</h2>
+      <button class="subbtn" onclick="exportCSV()">CSVで保存(Excel用)</button>
+      <button class="subbtn" onclick="exportJSON()">バックアップ保存</button>
+      <button class="subbtn" onclick="document.getElementById('importFile').click()">バックアップ読込</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+      <div class="note">CSVは獣医さんに見せる時にも便利です。バックアップは機種変更や別の端末に移す時に使います。</div>
+    </div>
+  </div>
+
+  <!-- 設定タブ -->
+  <div id="page-settings" style="display:none">
+    <div class="card">
+      <h2>猫ちゃんの名前</h2>
+      <div id="catNames"></div>
+      <button class="subbtn" onclick="saveCats()">名前を保存</button>
+      <div class="note">記録データはこのブラウザ(端末)の中だけに保存されます。インターネットには送られません。同じ端末・同じブラウザで開けば記録は残っています。</div>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const FOOD = ["完食","8割","半分","少しだけ","食べず"];
+const WATER = ["よく飲んだ","ふつう","少ない","未確認"];
+const POOP = ["良好","やや軟","下痢","硬い","なし"];
+const PEE = ["ふつう","多い","少ない","なし"];
+const KEY = "nekoTecho_v1";
+
+let db = load();
+let sel = { cat:null, food:null, water:null, poopState:null, peeAmount:null, poop:0, pee:0, filter:"all" };
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { cats:[{id:1,name:"猫1"},{id:2,name:"猫2"},{id:3,name:"猫3"},{id:4,name:"猫4"}], records:[] };
+}
+function persist(){ localStorage.setItem(KEY, JSON.stringify(db)); }
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function catName(id){ const c = db.cats.find(c=>c.id===id); return c ? c.name : "?"; }
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 1800);
+}
+
+/* ---------- タブ ---------- */
+function showTab(name){
+  ["record","history","settings"].forEach(n=>{
+    document.getElementById("page-"+n).style.display = (n===name) ? "" : "none";
+    document.getElementById("tab-"+n).classList.toggle("active", n===name);
+  });
+  if(name==="history") renderHistory();
+  if(name==="settings") renderSettings();
+  if(name==="record") renderToday();
+}
+
+/* ---------- 記録タブ ---------- */
+function chipRow(elId, list, key){
+  const el = document.getElementById(elId);
+  el.innerHTML = "";
+  list.forEach(v=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (sel[key]===v ? " sel" : "");
+    b.textContent = v;
+    b.onclick = ()=>{ sel[key] = (sel[key]===v ? null : v); chipRow(elId, list, key); };
+    el.appendChild(b);
+  });
+}
+function renderCatSelect(){
+  const el = document.getElementById("catSelect");
+  el.innerHTML = "";
+  db.cats.forEach(c=>{
+    const b = document.createElement("button");
+    b.className = "catbtn" + (sel.cat===c.id ? " sel" : "");
+    b.textContent = c.name;
+    b.onclick = ()=>{ sel.cat = c.id; renderCatSelect(); };
+    el.appendChild(b);
+  });
+}
+function bump(which, d){
+  sel[which] = Math.max(0, sel[which]+d);
+  document.getElementById(which+"N").textContent = sel[which];
+}
+function renderToday(){
+  const el = document.getElementById("todayGrid");
+  const t = todayStr();
+  el.innerHTML = "";
+  db.cats.forEach(c=>{
+    const done = db.records.some(r=>r.catId===c.id && r.date===t);
+    const d = document.createElement("div");
+    d.className = "today-cell" + (done ? " done" : "");
+    d.textContent = c.name + (done ? " ✓済" : " まだ");
+    el.appendChild(d);
+  });
+}
+function renderRecordForm(){
+  renderCatSelect();
+  chipRow("foodChips", FOOD, "food");
+  chipRow("waterChips", WATER, "water");
+  chipRow("poopChips", POOP, "poopState");
+  chipRow("peeChips", PEE, "peeAmount");
+  document.getElementById("recDate").value = todayStr();
+  renderToday();
+}
+function saveRecord(){
+  if(!sel.cat){ toast("どの子の記録か選んでください"); return; }
+  const rec = {
+    id: Date.now(),
+    catId: sel.cat,
+    date: document.getElementById("recDate").value || todayStr(),
+    food: sel.food, water: sel.water,
+    poopCount: sel.poop, poopState: sel.poopState,
+    peeCount: sel.pee, peeAmount: sel.peeAmount,
+    weight: document.getElementById("recWeight").value || null,
+    memo: document.getElementById("recMemo").value.trim() || null
+  };
+  db.records.push(rec);
+  persist();
+  // フォームを一部リセット(猫と日付は残す)
+  sel.food = sel.water = sel.poopState = sel.peeAmount = null;
+  sel.poop = 0; sel.pee = 0;
+  document.getElementById("poopN").textContent = "0";
+  document.getElementById("peeN").textContent = "0";
+  document.getElementById("recWeight").value = "";
+  document.getElementById("recMemo").value = "";
+  chipRow("foodChips", FOOD, "food");
+  chipRow("waterChips", WATER, "water");
+  chipRow("poopChips", POOP, "poopState");
+  chipRow("peeChips", PEE, "peeAmount");
+  renderToday();
+  toast(catName(rec.catId) + "の記録を保存しました 🐾");
+}
+
+/* ---------- 履歴タブ ---------- */
+function renderFilter(){
+  const el = document.getElementById("filterChips");
+  el.innerHTML = "";
+  const all = document.createElement("button");
+  all.className = "chip" + (sel.filter==="all" ? " sel" : "");
+  all.textContent = "全部";
+  all.onclick = ()=>{ sel.filter="all"; renderHistory(); };
+  el.appendChild(all);
+  db.cats.forEach(c=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (sel.filter===c.id ? " sel" : "");
+    b.textContent = c.name;
+    b.onclick = ()=>{ sel.filter=c.id; renderHistory(); };
+    el.appendChild(b);
+  });
+}
+function recLine(r){
+  const parts = [];
+  if(r.food) parts.push("ごはん:"+r.food);
+  if(r.water) parts.push("水:"+r.water);
+  if(r.poopCount || r.poopState) parts.push("ウンチ:"+(r.poopCount||0)+"回"+(r.poopState?"("+r.poopState+")":""));
+  if(r.peeCount || r.peeAmount) parts.push("おしっこ:"+(r.peeCount||0)+"回"+(r.peeAmount?"("+r.peeAmount+")":""));
+  if(r.weight) parts.push("体重:"+r.weight+"kg");
+  let s = parts.join(" / ");
+  if(r.memo) s += (s?"<br>":"") + "📝 " + escapeHtml(r.memo);
+  return s || "(項目なし)";
+}
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function renderHistory(){
+  renderFilter();
+  const el = document.getElementById("historyList");
+  let recs = db.records.slice().sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id);
+  if(sel.filter!=="all") recs = recs.filter(r=>r.catId===sel.filter);
+  if(recs.length===0){ el.innerHTML = "<div class='note'>まだ記録がありません。</div>"; return; }
+  el.innerHTML = "";
+  recs.slice(0,200).forEach(r=>{
+    const d = document.createElement("div");
+    d.className = "rec";
+    d.innerHTML = "<div class='top'><span>"+r.date+"　"+escapeHtml(catName(r.catId))+"</span>"+
+      "<button class='del' onclick='delRec("+r.id+")'>削除</button></div>"+
+      "<div class='body'>"+recLine(r)+"</div>";
+    el.appendChild(d);
+  });
+}
+function delRec(id){
+  if(!confirm("この記録を削除しますか?")) return;
+  db.records = db.records.filter(r=>r.id!==id);
+  persist(); renderHistory(); toast("削除しました");
+}
+
+/* ---------- 書き出し・読み込み ---------- */
+function download(name, content, type){
+  const blob = new Blob([content], {type:type});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function exportCSV(){
+  const head = "日付,名前,食事量,飲水,ウンチ回数,ウンチ状態,おしっこ回数,おしっこ量,体重kg,メモ";
+  const rows = db.records.slice().sort((a,b)=> a.date.localeCompare(b.date) || a.id-b.id)
+    .map(r=>[r.date, catName(r.catId), r.food||"", r.water||"", r.poopCount||0, r.poopState||"",
+      r.peeCount||0, r.peeAmount||"", r.weight||"", (r.memo||"").replace(/[",\n]/g," ")].join(","));
+  download("猫の健康記録_"+todayStr()+".csv", "﻿"+head+"\n"+rows.join("\n"), "text/csv");
+  toast("CSVを保存しました");
+}
+function exportJSON(){
+  download("猫の健康手帳バックアップ_"+todayStr()+".json", JSON.stringify(db, null, 1), "application/json");
+  toast("バックアップを保存しました");
+}
+function importJSON(ev){
+  const f = ev.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data.cats || !data.records) throw new Error("形式が違います");
+      db = data; persist();
+      renderRecordForm(); renderHistory(); renderSettings();
+      toast("バックアップを読み込みました");
+    }catch(e){ alert("読み込めませんでした: "+e.message); }
+  };
+  reader.readAsText(f);
+  ev.target.value = "";
+}
+
+/* ---------- 設定タブ ---------- */
+function renderSettings(){
+  const el = document.getElementById("catNames");
+  el.innerHTML = "";
+  db.cats.forEach((c,i)=>{
+    const label = document.createElement("label");
+    label.textContent = (i+1)+"匹目";
+    const input = document.createElement("input");
+    input.type = "text"; input.value = c.name; input.id = "catname-"+c.id;
+    el.appendChild(label); el.appendChild(input);
+  });
+}
+function saveCats(){
+  db.cats.forEach(c=>{
+    const v = document.getElementById("catname-"+c.id).value.trim();
+    if(v) c.name = v;
+  });
+  persist(); renderRecordForm(); toast("名前を保存しました");
+}
+
+/* ---------- 初期化 ---------- */
+renderRecordForm();
+</script>
+</body>
+</html>
