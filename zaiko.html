@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>おうち在庫手帳</title>
+<style>
+  :root{
+    --bg:#f2f6f3; --card:#ffffff; --ink:#37423b; --sub:#7d8a81;
+    --accent:#5a9e7c; --accent-dark:#48825f; --line:#dfe8e1;
+    --ok:#5a9e7c; --half:#e0a458; --out:#d9705f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:"Hiragino Sans","Yu Gothic",sans-serif; background:var(--bg); color:var(--ink); font-size:16px;}
+  header{background:var(--accent); color:#fff; padding:14px 16px; text-align:center; font-size:19px; font-weight:700; letter-spacing:.05em;}
+  nav{display:flex; background:#fff; border-bottom:2px solid var(--line); position:sticky; top:0; z-index:10;}
+  nav button{flex:1; padding:13px 0; border:none; background:none; font-size:15px; color:var(--sub); font-weight:600; cursor:pointer; border-bottom:3px solid transparent;}
+  nav button.active{color:var(--accent-dark); border-bottom-color:var(--accent);}
+  nav button .badge{display:inline-block; min-width:20px; padding:1px 6px; border-radius:999px; background:var(--out); color:#fff; font-size:12px; margin-left:4px;}
+  main{padding:14px; max-width:560px; margin:0 auto; padding-bottom:60px;}
+  .card{background:var(--card); border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  h2{font-size:15px; margin:0 0 10px; color:var(--accent-dark);}
+  label{display:block; font-size:13px; color:var(--sub); font-weight:600; margin:10px 0 4px;}
+  input[type=text],input[type=number],select{
+    width:100%; padding:11px; border:1.5px solid var(--line); border-radius:10px; font-size:16px; background:#fbfdfb; color:var(--ink);}
+  .chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{padding:9px 13px; border-radius:999px; border:1.5px solid var(--line); background:#fff; font-size:14px; color:var(--ink); cursor:pointer;}
+  .chip.sel{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700;}
+  .item{display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); padding:10px 2px;}
+  .item:last-child{border-bottom:none;}
+  .item .name{flex:1; font-weight:700; font-size:15px; overflow:hidden; text-overflow:ellipsis;}
+  .item .name small{display:block; font-weight:400; color:var(--sub); font-size:12px;}
+  .st{border:none; border-radius:999px; padding:8px 12px; font-size:13px; font-weight:700; color:#fff; cursor:pointer; min-width:76px;}
+  .st.s-あり{background:var(--ok);}
+  .st.s-使いかけ{background:var(--half);}
+  .st.s-なし{background:var(--out);}
+  .cnt{display:flex; align-items:center; gap:4px;}
+  .cnt button{width:34px; height:34px; border-radius:50%; border:none; background:#e7efe9; font-size:18px; color:var(--accent-dark); cursor:pointer; font-weight:700;}
+  .cnt span{font-size:16px; font-weight:700; min-width:22px; text-align:center;}
+  .del{background:none; border:none; color:#c2cdc5; font-size:15px; cursor:pointer; padding:4px 6px;}
+  .buybtn{border:none; border-radius:10px; background:var(--accent); color:#fff; font-size:14px; font-weight:700; padding:10px 14px; cursor:pointer;}
+  .savebtn{width:100%; padding:16px; border:none; border-radius:14px; background:var(--accent); color:#fff; font-size:18px; font-weight:700; cursor:pointer; margin-top:14px;}
+  .subbtn{padding:10px 14px; border:1.5px solid var(--accent); border-radius:10px; background:#fff; color:var(--accent-dark); font-size:14px; font-weight:700; cursor:pointer; margin:4px 4px 0 0;}
+  .cathead{font-size:13px; font-weight:700; color:var(--sub); margin:14px 0 2px; letter-spacing:.05em;}
+  .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 22px; border-radius:999px; font-size:15px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:99;}
+  .toast.show{opacity:1;}
+  .note{font-size:12.5px; color:var(--sub); line-height:1.6; margin-top:8px;}
+  .empty{color:var(--sub); font-size:14px; padding:8px 0;}
+  .catrow{display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); padding:8px 2px;}
+  .catrow span{flex:1; font-weight:700;}
+</style>
+</head>
+<body>
+<header>🏠 おうち在庫手帳</header>
+<nav>
+  <button id="tab-stock" class="active" onclick="showTab('stock')">ざいこ</button>
+  <button id="tab-buy" onclick="showTab('buy')">かうもの<span class="badge" id="buyBadge" style="display:none">0</span></button>
+  <button id="tab-add" onclick="showTab('add')">ついか</button>
+  <button id="tab-settings" onclick="showTab('settings')">せってい</button>
+</nav>
+<main>
+  <!-- 在庫タブ -->
+  <div id="page-stock">
+    <div class="card">
+      <h2>カテゴリでしぼる</h2>
+      <div class="chips" id="filterChips"></div>
+      <div class="note">状態ボタンを押すたびに あり → 使いかけ → なし と切り替わります。「なし」にすると自動で「かうもの」リストに入ります。</div>
+    </div>
+    <div class="card" id="stockList"></div>
+  </div>
+
+  <!-- 買い物タブ -->
+  <div id="page-buy" style="display:none">
+    <div class="card">
+      <h2>きょう買うもの</h2>
+      <div id="buyList"></div>
+      <div class="note">「買った✓」を押すと在庫に戻ります。お店でこの画面を開けば、マヨネーズの二重買いはもう起きません。</div>
+    </div>
+  </div>
+
+  <!-- 追加タブ -->
+  <div id="page-add" style="display:none">
+    <div class="card">
+      <h2>新しい品物をついか</h2>
+      <label>品物の名前</label>
+      <input type="text" id="addName" placeholder="例: めんつゆ">
+      <label>カテゴリ</label>
+      <div class="chips" id="addCatChips"></div>
+      <label>いまの状態</label>
+      <div class="chips" id="addStChips"></div>
+      <label>個数(ストック数)</label>
+      <input type="number" id="addCount" value="1" min="0" inputmode="numeric">
+      <button class="savebtn" onclick="addItem()">ついかする</button>
+    </div>
+  </div>
+
+  <!-- 設定タブ -->
+  <div id="page-settings" style="display:none">
+    <div class="card">
+      <h2>カテゴリの管理</h2>
+      <div id="catList"></div>
+      <label>新しいカテゴリを追加</label>
+      <input type="text" id="newCat" placeholder="例: 防災用品">
+      <button class="subbtn" onclick="addCat()">カテゴリ追加</button>
+    </div>
+    <div class="card">
+      <h2>データの持ち出し</h2>
+      <button class="subbtn" onclick="exportCSV()">CSVで保存(Excel用)</button>
+      <button class="subbtn" onclick="exportJSON()">バックアップ保存</button>
+      <button class="subbtn" onclick="document.getElementById('importFile').click()">バックアップ読込</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+      <div class="note">データはこの端末のブラウザの中だけに保存されます。ネットには送られません。</div>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const KEY = "zaikoTecho_v1";
+const STS = ["あり","使いかけ","なし"];
+const DEFAULT_CATS = ["食品","調味料","ビール","日用品","洗剤","猫用品","猫ご飯","服","下着"];
+
+let db = load();
+let sel = { filter:"all", addCat:null, addSt:"あり" };
+
+function seed(){
+  const s = [
+    ["マヨネーズ","調味料","あり",1],
+    ["ケチャップ","調味料","なし",0],
+    ["胡椒","調味料","使いかけ",0],
+    ["ビール","ビール","あり",6],
+    ["トイレットペーパー","日用品","あり",4],
+    ["ティッシュ","日用品","使いかけ",1],
+    ["洗濯洗剤","洗剤","使いかけ",0],
+    ["食器用洗剤","洗剤","あり",1],
+    ["猫砂","猫用品","あり",2],
+    ["カリカリ","猫ご飯","あり",1],
+    ["ちゅ〜る","猫ご飯","使いかけ",1]
+  ];
+  return s.map((x,i)=>({id:i+1, name:x[0], cat:x[1], status:x[2], count:x[3]}));
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { cats: DEFAULT_CATS.slice(), items: seed() };
+}
+function persist(){ localStorage.setItem(KEY, JSON.stringify(db)); }
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 1800);
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* ---------- タブ ---------- */
+function showTab(name){
+  ["stock","buy","add","settings"].forEach(n=>{
+    document.getElementById("page-"+n).style.display = (n===name) ? "" : "none";
+    document.getElementById("tab-"+n).classList.toggle("active", n===name);
+  });
+  if(name==="stock") renderStock();
+  if(name==="buy") renderBuy();
+  if(name==="add") renderAddForm();
+  if(name==="settings") renderSettings();
+}
+function updateBadge(){
+  const n = db.items.filter(i=>i.status==="なし").length;
+  const b = document.getElementById("buyBadge");
+  b.style.display = n>0 ? "" : "none";
+  b.textContent = n;
+}
+
+/* ---------- 在庫タブ ---------- */
+function renderFilter(){
+  const el = document.getElementById("filterChips");
+  el.innerHTML = "";
+  const mk = (val, txt)=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (sel.filter===val ? " sel" : "");
+    b.textContent = txt;
+    b.onclick = ()=>{ sel.filter = val; renderStock(); };
+    el.appendChild(b);
+  };
+  mk("all","全部");
+  db.cats.forEach(c=>mk(c,c));
+}
+function itemRow(it, forBuy){
+  const row = document.createElement("div");
+  row.className = "item";
+  const name = document.createElement("div");
+  name.className = "name";
+  name.innerHTML = esc(it.name) + "<small>" + esc(it.cat) + "</small>";
+  row.appendChild(name);
+  if(forBuy){
+    const btn = document.createElement("button");
+    btn.className = "buybtn";
+    btn.textContent = "買った ✓";
+    btn.onclick = ()=>{
+      it.status = "あり"; it.count = Math.max(1, it.count+1);
+      persist(); renderBuy(); updateBadge();
+      toast(it.name+" を在庫に戻しました");
+    };
+    row.appendChild(btn);
+  }else{
+    const cnt = document.createElement("div");
+    cnt.className = "cnt";
+    const minus = document.createElement("button"); minus.textContent = "−";
+    const num = document.createElement("span"); num.textContent = it.count;
+    const plus = document.createElement("button"); plus.textContent = "＋";
+    minus.onclick = ()=>{ it.count = Math.max(0, it.count-1); if(it.count===0 && it.status==="あり") it.status="使いかけ"; persist(); renderStock(); };
+    plus.onclick = ()=>{ it.count++; if(it.status==="なし") it.status="あり"; persist(); renderStock(); };
+    cnt.appendChild(minus); cnt.appendChild(num); cnt.appendChild(plus);
+    row.appendChild(cnt);
+    const st = document.createElement("button");
+    st.className = "st s-"+it.status;
+    st.textContent = it.status;
+    st.onclick = ()=>{
+      it.status = STS[(STS.indexOf(it.status)+1)%STS.length];
+      if(it.status==="なし") it.count = 0;
+      persist(); renderStock(); updateBadge();
+    };
+    row.appendChild(st);
+    const del = document.createElement("button");
+    del.className = "del"; del.textContent = "✕";
+    del.onclick = ()=>{
+      if(!confirm(it.name+" を一覧から削除しますか?")) return;
+      db.items = db.items.filter(x=>x.id!==it.id);
+      persist(); renderStock(); updateBadge();
+    };
+    row.appendChild(del);
+  }
+  return row;
+}
+function renderStock(){
+  renderFilter();
+  const el = document.getElementById("stockList");
+  el.innerHTML = "";
+  const cats = sel.filter==="all" ? db.cats : [sel.filter];
+  let any = false;
+  cats.forEach(c=>{
+    const items = db.items.filter(i=>i.cat===c);
+    if(items.length===0) return;
+    any = true;
+    const h = document.createElement("div");
+    h.className = "cathead"; h.textContent = "── "+c;
+    el.appendChild(h);
+    items.forEach(it=>el.appendChild(itemRow(it,false)));
+  });
+  if(!any) el.innerHTML = "<div class='empty'>この カテゴリにはまだ品物がありません。「ついか」タブから登録してください。</div>";
+  updateBadge();
+}
+
+/* ---------- 買い物タブ ---------- */
+function renderBuy(){
+  const el = document.getElementById("buyList");
+  el.innerHTML = "";
+  const items = db.items.filter(i=>i.status==="なし");
+  if(items.length===0){
+    el.innerHTML = "<div class='empty'>買うものはありません。在庫は万全です 🍺</div>";
+    return;
+  }
+  db.cats.forEach(c=>{
+    const list = items.filter(i=>i.cat===c);
+    if(list.length===0) return;
+    const h = document.createElement("div");
+    h.className = "cathead"; h.textContent = "── "+c;
+    el.appendChild(h);
+    list.forEach(it=>el.appendChild(itemRow(it,true)));
+  });
+}
+
+/* ---------- 追加タブ ---------- */
+function renderAddForm(){
+  if(!sel.addCat || !db.cats.includes(sel.addCat)) sel.addCat = db.cats[0];
+  const cc = document.getElementById("addCatChips");
+  cc.innerHTML = "";
+  db.cats.forEach(c=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (sel.addCat===c ? " sel" : "");
+    b.textContent = c;
+    b.onclick = ()=>{ sel.addCat=c; renderAddForm(); };
+    cc.appendChild(b);
+  });
+  const scEl = document.getElementById("addStChips");
+  scEl.innerHTML = "";
+  STS.forEach(s=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (sel.addSt===s ? " sel" : "");
+    b.textContent = s;
+    b.onclick = ()=>{ sel.addSt=s; renderAddForm(); };
+    scEl.appendChild(b);
+  });
+}
+function addItem(){
+  const name = document.getElementById("addName").value.trim();
+  if(!name){ toast("品物の名前を入れてください"); return; }
+  const count = Math.max(0, parseInt(document.getElementById("addCount").value||"0",10));
+  db.items.push({ id: Date.now(), name:name, cat:sel.addCat, status:sel.addSt, count: sel.addSt==="なし" ? 0 : count });
+  persist();
+  document.getElementById("addName").value = "";
+  document.getElementById("addCount").value = "1";
+  updateBadge();
+  toast(name+" をついかしました");
+}
+
+/* ---------- 設定タブ ---------- */
+function renderSettings(){
+  const el = document.getElementById("catList");
+  el.innerHTML = "";
+  db.cats.forEach(c=>{
+    const row = document.createElement("div");
+    row.className = "catrow";
+    const sp = document.createElement("span"); sp.textContent = c;
+    row.appendChild(sp);
+    const n = db.items.filter(i=>i.cat===c).length;
+    const info = document.createElement("small");
+    info.textContent = n+"品"; info.style.color = "var(--sub)";
+    row.appendChild(info);
+    const del = document.createElement("button");
+    del.className = "del"; del.textContent = "✕";
+    del.onclick = ()=>{
+      if(n>0){ alert("このカテゴリには品物が入っているため削除できません。先に品物を削除するか、別カテゴリに追加し直してください。"); return; }
+      if(!confirm("カテゴリ「"+c+"」を削除しますか?")) return;
+      db.cats = db.cats.filter(x=>x!==c);
+      persist(); renderSettings();
+    };
+    row.appendChild(del);
+    el.appendChild(row);
+  });
+}
+function addCat(){
+  const v = document.getElementById("newCat").value.trim();
+  if(!v){ toast("カテゴリ名を入れてください"); return; }
+  if(db.cats.includes(v)){ toast("同じ名前のカテゴリがあります"); return; }
+  db.cats.push(v);
+  persist();
+  document.getElementById("newCat").value = "";
+  renderSettings();
+  toast("カテゴリ「"+v+"」を追加しました");
+}
+
+/* ---------- 書き出し・読み込み ---------- */
+function download(name, content, type){
+  const blob = new Blob([content], {type:type});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function today(){
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function exportCSV(){
+  const head = "カテゴリ,品名,状態,個数";
+  const rows = db.items.map(i=>[i.cat, i.name.replace(/[",\n]/g," "), i.status, i.count].join(","));
+  download("在庫一覧_"+today()+".csv", "﻿"+head+"\n"+rows.join("\n"), "text/csv");
+  toast("CSVを保存しました");
+}
+function exportJSON(){
+  download("在庫手帳バックアップ_"+today()+".json", JSON.stringify(db, null, 1), "application/json");
+  toast("バックアップを保存しました");
+}
+function importJSON(ev){
+  const f = ev.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data.cats || !data.items) throw new Error("形式が違います");
+      db = data; persist();
+      renderStock(); renderSettings();
+      toast("バックアップを読み込みました");
+    }catch(e){ alert("読み込めませんでした: "+e.message); }
+  };
+  reader.readAsText(f);
+  ev.target.value = "";
+}
+
+/* ---------- 初期化 ---------- */
+renderStock();
+updateBadge();
+</script>
+</body>
+</html>
