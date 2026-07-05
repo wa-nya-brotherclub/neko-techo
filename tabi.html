@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>行き当たりばっ旅 記録帳</title>
+<style>
+  :root{
+    --bg:#1b2440; --card:#242f52; --ink:#f0ede6; --sub:#9aa3bf;
+    --accent:#f0a442; --accent-dark:#d88b28; --line:#35406b;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:"Hiragino Sans","Yu Gothic",sans-serif; background:var(--bg); color:var(--ink); font-size:16px;}
+  header{background:linear-gradient(135deg,#2a3663,#1b2440); color:#fff; padding:16px; text-align:center; font-size:19px; font-weight:700; letter-spacing:.05em; border-bottom:2px solid var(--accent);}
+  header small{display:block; font-size:12px; color:var(--sub); font-weight:400; margin-top:4px;}
+  nav{display:flex; background:#202a4d; position:sticky; top:0; z-index:10; border-bottom:2px solid var(--line);}
+  nav button{flex:1; padding:13px 0; border:none; background:none; font-size:15px; color:var(--sub); font-weight:600; cursor:pointer; border-bottom:3px solid transparent;}
+  nav button.active{color:var(--accent); border-bottom-color:var(--accent);}
+  main{padding:14px; max-width:560px; margin:0 auto; padding-bottom:60px;}
+  .card{background:var(--card); border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  h2{font-size:15px; margin:0 0 10px; color:var(--accent);}
+  .tripname{font-size:13px; color:var(--sub); margin-bottom:8px;}
+  .tripname b{color:var(--ink);}
+  .btngrid{display:flex; flex-wrap:wrap; gap:8px;}
+  .ev{flex:1 1 30%; padding:16px 4px; border-radius:12px; border:1.5px solid var(--line); background:#2b3760; font-size:15px; font-weight:700; color:var(--ink); cursor:pointer;}
+  .ev:active{background:var(--accent); color:#1b2440;}
+  textarea, input[type=text], select{width:100%; padding:11px; border:1.5px solid var(--line); border-radius:10px; font-size:16px; background:#1f294b; color:var(--ink);}
+  textarea{resize:vertical; min-height:56px;}
+  .row{display:flex; gap:8px; margin-top:8px;}
+  .savebtn{flex:1; padding:14px; border:none; border-radius:12px; background:var(--accent); color:#1b2440; font-size:16px; font-weight:700; cursor:pointer;}
+  .locbtn{padding:14px 16px; border:1.5px solid var(--accent); border-radius:12px; background:none; color:var(--accent); font-size:15px; font-weight:700; cursor:pointer;}
+  .subbtn{padding:10px 14px; border:1.5px solid var(--accent); border-radius:10px; background:none; color:var(--accent); font-size:14px; font-weight:700; cursor:pointer; margin:4px 4px 0 0;}
+  .day{font-size:14px; font-weight:700; color:var(--accent); margin:16px 0 4px; letter-spacing:.05em;}
+  .rec{border-bottom:1px solid var(--line); padding:10px 2px; display:flex; gap:10px; align-items:flex-start;}
+  .rec:last-child{border-bottom:none;}
+  .rec .t{font-weight:700; color:var(--accent); white-space:nowrap; font-size:14px; padding-top:2px;}
+  .rec .body{flex:1; font-size:15px; line-height:1.6;}
+  .rec .body small{color:var(--sub);}
+  .rec .body a{color:#8ab8f0;}
+  .del{background:none; border:none; color:#5a6690; font-size:13px; cursor:pointer; padding:2px 6px;}
+  .catrow{display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); padding:8px 2px;}
+  .catrow span{flex:1; font-weight:700;}
+  .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--accent); color:#1b2440; padding:12px 22px; border-radius:999px; font-size:15px; font-weight:700; opacity:0; transition:opacity .3s; pointer-events:none; z-index:99;}
+  .toast.show{opacity:1;}
+  .note{font-size:12.5px; color:var(--sub); line-height:1.7; margin-top:8px;}
+  .empty{color:var(--sub); font-size:14px; padding:8px 0;}
+</style>
+</head>
+<body>
+<header>🚗 行き当たりばっ旅 記録帳<small>休憩のときにポチッと。運転中は運転に集中!</small></header>
+<nav>
+  <button id="tab-write" class="active" onclick="showTab('write')">きろく</button>
+  <button id="tab-log" onclick="showTab('log')">たびの記録</button>
+  <button id="tab-settings" onclick="showTab('settings')">せってい</button>
+</nav>
+<main>
+  <!-- 記録タブ -->
+  <div id="page-write">
+    <div class="card">
+      <div class="tripname" id="tripLabel"></div>
+      <h2>いま、なにした?(押すだけで時刻付き記録)</h2>
+      <div class="btngrid" id="evGrid"></div>
+    </div>
+    <div class="card">
+      <h2>ひとことメモ(あれば)</h2>
+      <textarea id="memo" placeholder="例: 恐竜博物館、想像の3倍デカい。"></textarea>
+      <div class="row">
+        <button class="savebtn" onclick="saveMemo()">メモだけ記録する</button>
+        <button class="locbtn" onclick="addLoc()">📍 いまの場所</button>
+      </div>
+      <div class="note">「いまの場所」を押すと、地図リンク付きでメモが残ります。あとで「あの絶景どこだったっけ?」に効きます。</div>
+    </div>
+  </div>
+
+  <!-- 記録一覧タブ -->
+  <div id="page-log" style="display:none">
+    <div class="card">
+      <h2>どの旅を見る?</h2>
+      <select id="tripSelect" onchange="renderLog()"></select>
+      <button class="subbtn" onclick="exportText()">この旅を文章で書き出し(note用)</button>
+    </div>
+    <div class="card" id="logList"></div>
+  </div>
+
+  <!-- 設定タブ -->
+  <div id="page-settings" style="display:none">
+    <div class="card">
+      <h2>旅の管理</h2>
+      <div class="tripname">記録中の旅:<b id="tripLabel2"></b></div>
+      <label class="note">新しい旅の名前</label>
+      <input type="text" id="newTrip" placeholder="例: 2026 フジロック卒業と福井の旅">
+      <button class="subbtn" onclick="startTrip()">新しい旅を始める</button>
+      <div class="note">旅を始めると、記録はその旅に入ります。過去の旅は「たびの記録」からいつでも読み返せます。</div>
+    </div>
+    <div class="card">
+      <h2>ボタンの編集</h2>
+      <div id="evList"></div>
+      <input type="text" id="newEv" placeholder="例: 🦖 恐竜博物館">
+      <button class="subbtn" onclick="addEv()">ボタンを追加</button>
+      <div class="note">絵文字は入れても入れなくてもOK。あなたの旅の定番を並べてください。</div>
+    </div>
+    <div class="card">
+      <h2>データの持ち出し</h2>
+      <button class="subbtn" onclick="exportJSON()">バックアップ保存</button>
+      <button class="subbtn" onclick="document.getElementById('importFile').click()">バックアップ読込</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+      <div class="note">記録はこの端末の中だけに保存され、ネットには送られません。機種変更のときはバックアップでお引っ越しできます。</div>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const KEY = "tabiKiroku_v2";
+const DEFAULT_EVENTS = ["🚗 出発","☕ 休憩","⛽ 給油","🍜 ごはん","🛣 寄り道","🍶 仕入れ","🏔 絶景","🎸 ライブ","🛏 宿到着","🐈 猫が恋しい","📸 写真撮った","🍺 今日は終わり"];
+
+let db = load();
+function load(){
+  try{ const r = localStorage.getItem(KEY); if(r) return JSON.parse(r); }catch(e){}
+  // v1からの引っ越し
+  try{
+    const old = localStorage.getItem("tabiKiroku_v1");
+    if(old){
+      const o = JSON.parse(old);
+      return { events: DEFAULT_EVENTS.slice(),
+               trips: [{id:1, name:"最初の旅", recs:o.recs||[]}], active:1 };
+    }
+  }catch(e){}
+  return { events: DEFAULT_EVENTS.slice(),
+           trips: [{id:1, name:"2026 フジロック卒業と福井の旅", recs:[]}], active:1 };
+}
+function persist(){ localStorage.setItem(KEY, JSON.stringify(db)); }
+function trip(){ return db.trips.find(t=>t.id===db.active) || db.trips[db.trips.length-1]; }
+function toast(m){
+  const t = document.getElementById("toast");
+  t.textContent = m; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 1600);
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function now(){
+  const d = new Date();
+  const pad = n=>String(n).padStart(2,"0");
+  return { date: d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()),
+           time: pad(d.getHours())+":"+pad(d.getMinutes()) };
+}
+function dayLabel(day){
+  const d = new Date(day+"T00:00");
+  return (d.getMonth()+1)+"月"+d.getDate()+"日("+["日","月","火","水","木","金","土"][d.getDay()]+")";
+}
+
+function showTab(name){
+  ["write","log","settings"].forEach(n=>{
+    document.getElementById("page-"+n).style.display = (n===name)?"":"none";
+    document.getElementById("tab-"+n).classList.toggle("active", n===name);
+  });
+  if(name==="log"){ renderTripSelect(); renderLog(); }
+  if(name==="settings") renderSettings();
+  if(name==="write") renderWrite();
+}
+
+/* 記録 */
+function addRec(label, text, loc){
+  const t = now();
+  trip().recs.push({ id:Date.now(), date:t.date, time:t.time, label:label||null, text:text||null, loc:loc||null });
+  persist();
+}
+function renderWrite(){
+  document.getElementById("tripLabel").innerHTML = "記録中の旅:<b>"+esc(trip().name)+"</b>";
+  const g = document.getElementById("evGrid");
+  g.innerHTML = "";
+  db.events.forEach(ev=>{
+    const b = document.createElement("button");
+    b.className = "ev"; b.textContent = ev;
+    b.onclick = ()=>{
+      const memo = document.getElementById("memo").value.trim();
+      addRec(ev, memo||null, null);
+      document.getElementById("memo").value = "";
+      toast(ev+" を記録しました("+now().time+")");
+    };
+    g.appendChild(b);
+  });
+}
+function saveMemo(){
+  const memo = document.getElementById("memo").value.trim();
+  if(!memo){ toast("メモが空です"); return; }
+  addRec(null, memo, null);
+  document.getElementById("memo").value = "";
+  toast("メモを記録しました("+now().time+")");
+}
+function addLoc(){
+  if(!navigator.geolocation){ toast("この端末では位置が取れません"); return; }
+  toast("位置を確認中…");
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      const memo = document.getElementById("memo").value.trim();
+      const loc = p.coords.latitude.toFixed(5)+","+p.coords.longitude.toFixed(5);
+      addRec("📍 いまここ", memo||null, loc);
+      document.getElementById("memo").value = "";
+      toast("場所つきで記録しました");
+    },
+    ()=>toast("位置が取れませんでした(設定で許可が必要かも)"),
+    { timeout:10000 }
+  );
+}
+
+/* 一覧 */
+function renderTripSelect(){
+  const s = document.getElementById("tripSelect");
+  s.innerHTML = "";
+  db.trips.slice().reverse().forEach(t=>{
+    const o = document.createElement("option");
+    o.value = t.id; o.textContent = t.name + "(" + t.recs.length + "件)";
+    s.appendChild(o);
+  });
+  s.value = db.active;
+}
+function selectedTrip(){
+  const v = parseInt(document.getElementById("tripSelect").value,10);
+  return db.trips.find(t=>t.id===v) || trip();
+}
+function renderLog(){
+  const el = document.getElementById("logList");
+  const tp = selectedTrip();
+  el.innerHTML = "";
+  if(tp.recs.length===0){ el.innerHTML = "<div class='empty'>この旅にはまだ記録がありません。</div>"; return; }
+  const days = [...new Set(tp.recs.map(r=>r.date))].sort();
+  days.forEach(day=>{
+    const h = document.createElement("div");
+    h.className = "day"; h.textContent = "── "+dayLabel(day);
+    el.appendChild(h);
+    tp.recs.filter(r=>r.date===day).sort((a,b)=>a.id-b.id).forEach(r=>{
+      const row = document.createElement("div");
+      row.className = "rec";
+      let body = "";
+      if(r.label) body += "<b>"+esc(r.label)+"</b> ";
+      if(r.text) body += esc(r.text);
+      if(r.loc) body += " <a href='https://www.google.com/maps?q="+r.loc+"' target='_blank'>地図</a>";
+      if(!body) body = "<small>(記録)</small>";
+      row.innerHTML = "<span class='t'>"+r.time+"</span><span class='body'>"+body+"</span>"+
+        "<button class='del' onclick='delRec("+tp.id+","+r.id+")'>✕</button>";
+      el.appendChild(row);
+    });
+  });
+}
+function delRec(tid, id){
+  if(!confirm("この記録を削除しますか?")) return;
+  const tp = db.trips.find(t=>t.id===tid);
+  tp.recs = tp.recs.filter(r=>r.id!==id);
+  persist(); renderLog();
+}
+
+/* 設定 */
+function renderSettings(){
+  document.getElementById("tripLabel2").textContent = trip().name;
+  const el = document.getElementById("evList");
+  el.innerHTML = "";
+  db.events.forEach((ev,i)=>{
+    const row = document.createElement("div");
+    row.className = "catrow";
+    const sp = document.createElement("span"); sp.textContent = ev;
+    row.appendChild(sp);
+    const del = document.createElement("button");
+    del.className = "del"; del.textContent = "✕";
+    del.onclick = ()=>{
+      if(!confirm("ボタン「"+ev+"」を削除しますか?(過去の記録は消えません)")) return;
+      db.events.splice(i,1); persist(); renderSettings();
+    };
+    row.appendChild(del);
+    el.appendChild(row);
+  });
+}
+function addEv(){
+  const v = document.getElementById("newEv").value.trim();
+  if(!v){ toast("ボタン名を入れてください"); return; }
+  if(db.events.includes(v)){ toast("同じボタンがあります"); return; }
+  db.events.push(v); persist();
+  document.getElementById("newEv").value = "";
+  renderSettings();
+  toast("ボタン「"+v+"」を追加しました");
+}
+function startTrip(){
+  const v = document.getElementById("newTrip").value.trim();
+  if(!v){ toast("旅の名前を入れてください"); return; }
+  const id = Date.now();
+  db.trips.push({id:id, name:v, recs:[]});
+  db.active = id;
+  persist();
+  document.getElementById("newTrip").value = "";
+  renderSettings();
+  toast("「"+v+"」が始まりました。いってらっしゃい!");
+}
+
+/* 持ち出し */
+function download(name, content, type){
+  const blob = new Blob([content], {type:type});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function exportText(){
+  const tp = selectedTrip();
+  if(tp.recs.length===0){ toast("この旅にはまだ記録がありません"); return; }
+  let out = tp.name+"\n\n";
+  const days = [...new Set(tp.recs.map(r=>r.date))].sort();
+  days.forEach(day=>{
+    out += "◆ "+dayLabel(day)+"\n";
+    tp.recs.filter(r=>r.date===day).sort((a,b)=>a.id-b.id).forEach(r=>{
+      let line = "  "+r.time+" ";
+      if(r.label) line += r.label+" ";
+      if(r.text) line += r.text;
+      if(r.loc) line += " (地図: https://www.google.com/maps?q="+r.loc+")";
+      out += line+"\n";
+    });
+    out += "\n";
+  });
+  download(tp.name+".txt", out, "text/plain");
+  toast("書き出しました");
+}
+function exportJSON(){
+  download("旅の記録帳バックアップ.json", JSON.stringify(db,null,1), "application/json");
+  toast("バックアップを保存しました");
+}
+function importJSON(ev){
+  const f = ev.target.files[0];
+  if(!f) return;
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    try{
+      const data = JSON.parse(rd.result);
+      if(!data.trips) throw new Error("形式が違います");
+      db = data; persist(); renderWrite(); toast("読み込みました");
+    }catch(e){ alert("読み込めませんでした: "+e.message); }
+  };
+  rd.readAsText(f);
+  ev.target.value = "";
+}
+
+renderWrite();
+</script>
+</body>
+</html>
